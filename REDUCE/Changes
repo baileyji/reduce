@@ -1,0 +1,589 @@
+     Please record ALL functional changes to the Hamilton reduction software
+here and at the beginning of all affected routines.  -JAV
+
+30-Mar-98 JAV  hamsrc.pro
+  Analysis: The user library distributed with IDL now includes a routine
+    named "trace.pro" which contains a function to compute the trace of a
+    matrix. This naming degeneracy with the "trace.pro" in the reduction
+    package can lead to the wrong routine being compiled, depending on the
+    order of directories in IDL_PATH. If the wrong routine is compiled, the
+    reduction package will halt with an "undefined procedure or function"
+    error message.
+  Solution: To avoid the naming conflict, trace.pro in the reduction package
+    was renamed hamtrc.pro with a corresponding change in the name of the
+    procedure contained therein. Throughout the package, calls to "trace"
+    were replaced by calls to "hamtrc". The following routines were affected:
+    backgd, blaze, cformat, deblaze, exafc, exorc, falspk, fitarcs, flatim,
+    fndpks, fords, getarc, getbkg, getimage, getorc, getspec, gettrof,
+    getxwd, hamdord, hamflat, hamspec, hamtrc, hotpix, igetarc, locate,
+    maskbox, maskim, normflat, ospace
+
+09-Feb-98 CMJ  getimage.pro
+  Analysis:    See next entry.
+  Solution:    Added ClipBias logic to handle McDonald data and therefore
+    the procedure rectify is no longer needed.  NOTE: So far, routines
+    such as sumfits will not yet work on IRAF written FITS files since
+    this program does not use rdfits.pro.
+
+09-Feb-98 CMJ  rdfits.pro
+  Analysis:    rdfits.pro generally fails to read in IRAF written fits files
+    properly.  The old solution was to use rectify.pro to read them in
+    with the Goddard readfits.pro routine and then write them out with 
+    wtfits before the reudction process.  Rectify.pro also subtracted 
+    the mean of the overscan off McDonald images which is a good estimate 
+    of the bias.  However, the scaling in wfits actually caused a slight 
+    loss of information.
+  Solution:    rdfits is now a driver for readfits.pro.  You can select /old
+    to implement the old version of rdfits.pro.  All of the old functionality
+    of rdfits.pro is reserved, so it should be a transparent change.  Also
+    added some capabilities, such as clipbias keyword to do wht rectify does
+    and therefore bypass the need for rectify.pro to even be run.
+
+29-Oct-97 CMJ  hamset.pro, cformat.pro, maskim.pro
+  Analysis:    A new Lick dewar has been added to the reduction package.
+    This is a new 2048 chip installed in the old dewar #6.  The format
+    of the spectrum is reversed along columns from the old Lick dewars.
+  Solution:    Added this dewar as id = 6.2 to the reduction package and
+    created a mask for it based on a wide flat exposure.
+
+28-Oct-97 CMJ  backgd.pro, bckgrc.pro, exafc.pro, exorc.pro, fitarcs.pro,
+               ospace.pro, and quadex.pro
+  Analysis:    See immediately below for fords.pro.  Concern is that 
+    poly_fit could not work properly in many situations without the 
+    /double keyword.
+  Solution:    Add /double keyword to all poly_fit calls.
+
+28-Oct-97 CMJ  fords.pro
+  Analysis:   Fords was continually failing on Hamilton 2048X2048 chip
+    data, returning NaN for all the values of the order location 
+    coefficients as well as arithmetic floating point errors.  Eventually
+    problem was traced to IDL routine poly_fit returning NaN if the
+    /double keyword is not supplied under certain circumstances.
+  Solution:   Add the /double keyword to all poly_fit calls in fords.
+
+27-Mar-97 CMJ,JAV  sumfits.pro
+  Analysis:   Using sumfits on CSHELL spectra did not produce the same sum
+    as when reading the images in separately and then adding them.  It
+    turns out sumfits.pro assumed that the data started right after the
+    endcard, but this is non standard.  CSHELL spectra are padded with
+    zeros after the endcard to reach a multiple of 2880.
+  Solution:   Added logic to size of HSList in sumfits which forced it
+    to force the data to begin after a multiple of 2880.
+
+01-Nov-95 CMJ  wtfits.pro
+  Analysis:  Some of my fits images come with no BSCALE or BZERO cards in
+    their headers if there was no unusual scaling done.  Wtfits.pro would
+    then abort on these images during normal processing.
+  Solution:  Modified the tests for these.  If no cards detected, it prints
+    a warning, then adds new cards with BSCALE = 1.0, BZERO = 0.0 and continues.
+
+01-Nov-95 CMJ  hamset.pro, maskim.pro, exorc.pro, cformat.pro
+  Analysis:  Needed some additional processing steps for McDonald 2.7-m
+    coude echelle spectra with the TK3 chip at the R=60,000 focus.
+  Solution:  Created dewar 34.1 specifications to identify this combination.
+    The needed modifications to each routine were added, the most significant
+    of which is adjust nadd in exorc.pro for this setup since the orders 
+    curve substantially more in this configuration than in other supported
+    setups.
+
+23-Aug-95 CMJ  addcard.pro
+  Analysis:  All my coadded images from the first McDonald run with TK3 were
+    shifted improperly and the headers for these files read in by rdfits.pro
+    were not multiples of 2880 bytes long.
+  Solution:  Found that addcard.pro does not move the END card to the last 
+    header card when it has to add 36 blank cards to an already full header.  
+    This in turn upsets rdfits.pro inits read.  Added logic to addcard.pro so 
+    that when it adds a block of 36 blank cards to the end of the header, it 
+    moved the END card to the end of the new header.
+
+22-Aug-95 CMJ  Routines as listed below.
+  Analysis:  Added the McDonald 2.7m 2dcoude spectrometer with the TK3 chip
+    to the list of dewars handled by the reduction package.  A number of minor
+    adjustments needed to be made to the code to enable this and our listed
+    here.
+  Solution:  The following routines were altered -
+    1.) hamset.pro - added the TK3 dewar to the list as dewar 34.
+    2.) getimage.pro - added dewar 34 and set clipbase = 32 for this dewar.
+    3.) cformat.pro - added dewar 34 to code and specify reversing the
+          orders at the end so wavelength runs letf to right (blue to red) 
+          in each order in the reduced spectra.
+    4.) maskim.pro - added dewar 34 and secified to regions of bad columns
+          in the mask.
+
+19-Jul-95 CMJ  getarc.pro
+  Analysis:  Using getarc to "manually" extract orders from an image in
+    which fords had found 27 orders, I found that the routine would not
+    let me attempt an extraction on orders 26, 27, and 0.  Inspecting
+    getspec.pro showed that it creates the extended order coefficients to
+    enable getarc.pro to work properly in this situation.
+  Solution:  Modified getarc.pro to igetarc.pro to allow extraction without
+    first creating extended order coefficients.  To do so I
+    increased the variable maxo by one and adjusted logic on the
+    test at the begining of the awid lt 1 section to allow it to operate
+    on the top two orders.  Adjusted indexing in this section to have the
+    routine bound the requested order and added checks to see if the requested
+    order is the first or last which then require an extrapolation of the 
+    orcs instead of an interpolation.  This is mainly useful when "manually"
+    inspecting images and bypasses the need to create extended order
+    coefficients outside of the program.  Note that it references orders from
+    1 to nord.
+
+07-Feb-95 CMJ  exorc.pro
+  Analysis:  exorc.pro was unable to add enough orders to cover the top of 
+    the AIS chip from the 2.7m at McDonald.  Not enough extrapolated orders
+    were being attempted.
+  Solution:  Added the ham.common variables to the code and have it check to
+    see if the AIS chip is being used (dewar 32).  If so, change nadd to 6
+    which lets it try enough extrapolated orders to do the job.
+
+07-Feb-95 CMJ  getimage.pro
+  Analysis:  Examination of the ytrim section of the code indicated that the
+    tests done there to see if the requested trim was a subset of the image
+    found that the routine was checking against the number of columns, not the
+    number of rows.  
+  Solution:  replaced ncol by nrow and made nrow equal to the number of rows.
+
+06-Feb-95 CMJ  getorc.pro
+  Analysis:  If fords fails to find orders on narrow flat, it attempts to
+    calculate a shift between the current image and dorc which is set to 0.
+    This causes the package to end ungracefully and makes it casually look as if
+    it found the orders.
+  Solution:  Added logic to shift section of getorc.pro so that if the 
+    current image is the narrow flat, getorc will not attempt the shift if
+    fords.pro fails.
+
+06-Feb-95 CMJ  Reduction Package
+  These changes were made on 06-Feb-1995 as part of an effort to include
+    data from the 2.7m coude echelle at McDonald Observatory in the list of
+    instruments reduceable by the Hamilton reduction package.  The following
+    changes were made:
+    1.)  hamset.pro - Differentiate the 2.1m and 2.7m dewar id numbers.  
+         Dewar 30 refers to the 2.1m cass echelle, dewar 32 refers to the
+         2.7m coude echelle with the AIS chip.
+    2.)  getimage.pro - Adjusted for better handling of McDonald data.  ClipBase
+         will be set to 32 for dewar 30 (2.1m) and will be 0 for dewar
+         32 (2.7m AIS).  Dewar 32 also requires a transpose operation.
+    3.)  hamspec.pro - Before saving extracted spectrum, test for McDonald 
+         dewars and call cformat.pro if present.  Both dewars need to have
+         the orders reversed and dewar 30 needs to have the ordering of the
+         orders reversed.
+    4.)  cformat.pro - Created routine to put the McDonald data on the same
+         format as the Hamilton data so that rdisp.pro and wdisp.pro work
+         properly on McDonald data.
+
+06-Feb-95 CMJ  Reduction Package
+  These changes were made mostly in December 1994 as part of an effort to
+    adapt the Hamilton reduction package to work with Sandiford Cass. Echelle
+    data from the 2.1-meter telescope at McDonald Observatory.  The following
+    changes were made:
+    1.)  rdfits.pro - Allow ClipBase to be any integer and that number of 
+         columns are removed from the end (need 32 for McD Cass Echelle).  
+         Created a bias keyword that can be used if such info is not properly
+         retrieved from FITS header (typically 5300 for Cass Echelle).
+    2.)  hamdord.pro, hamspec.pro, hamflat.pro - all of these had the value
+         of ClipBase (see above) set to 32 to handle this data.  This has
+         since been overridden and is handled through dewar id numbers.
+    3.)  rectify.pro, rectifyall.pro - Created routines to preprocess 
+         McDonald data.  These fix the strnage IRAF handling of very high
+         pixel values.  Also, allows for bias determination of the 2.1m
+         spectra which are then subtracted off.
+    4.)  wtfits.pro - Modify test for header length to warn that original 
+         violated fits standard and to pad it out if it just lacks the proper
+         number of cards.  The written fits file should be proper.
+         Assumption is that last real card is EndCard and it will be
+         placed at the end (true for Sandiford Cass. Echelle).
+    5.)  locate.pro - If dewar spacings not known, program now warns and assumes
+         obase=80 and continues instead of ending execution.
+    6.)  Moved backgound determination code to routine GETBKG in order
+         to facilitate interchanging Jeff's method with Gibor's by
+         changing what routine to use.  GETBKG is Jeff's trough
+         method.  BCKGRC is Gibor's method using contf to do a more
+         global fit.  I prefer GETBKG and use of the 2.5arcsec decker
+         correction for Hamilton images.  Currently, the choice is harwired
+         into the code.
+
+29-Aug-94 JAV	fords.pro
+  Analysis: Geoff Marcy reported (in February) that a bug in the code
+    caused the "Too many missing peaks" error to occur when analyzing
+    Keck spectra, in which the orders curve differently than they do
+    in the Hamilton.
+  Solution: The logic in the code was corrected, so that now missing
+    peaks are allowed within four orders of the last order, rather
+    than only in the fourth order from the end.
+
+06-Jul-94 JAV, CMJ   getarc.pro
+  Analysis:  The number of pixels mashed along each column returned by
+    the routine was approximately half what was expected when giving a
+    fractional extraction width.  An endelse was misplaced in the
+    program causing the lower boundary of all orders to be determined
+    as if the extraction width was given in pixels.  Therefore all
+    spectra reduced since about Apr 93 and possibly "all" spectra
+    reduced with getarc using a fractional extraction width only pulled
+    out a little over half the available signal.
+  Solution:  Moved the endelse command to the appropriate place.
+
+06-Jul-94 CMJ   getorc.pro
+  Analysis:  The shifts found by correlating the observation with the
+    default order locations were in error upon visual inspection.  This
+    was caused by the routine using a subset of the image centered 2/3
+    of the way over in columns where there happened to be some very hot
+    pixels which were by far the stronegst thing in the TTS spectra I
+    was looking at.  The cross correlation was driven by these hot
+    pixels instead of the orders and so the resulting shifts were
+    bogus.
+  Solution:  First I made the routine use a subset of the image
+    centered in 1/2 of the way over in cloumns since the spectra tend
+    to be better exposed there in our settings and using the middle
+    will help lessen the effects of any shape change of the orders
+    between the spectra and the narrow flat.  To handle hot column
+    problems, the routine now divides up the resulting image array
+    (essentially a column plot) into sveral bins and finds the mean and
+    standard deviation of each segment.  All pixels in this array whose
+    value is greater than mean+4*stdev are set equal to mean+4*stdev
+    where I use the minimal values of mean and stdev from the upper
+    half of the chip.  This will cut the top off some real orders but
+    will maintain there general shape and location which is what is
+    critical for this process.
+
+27-Apr-94 JAV	backgd.pro
+  Analysis: No symptoms in reduced spectra. An examination of backgd.pro
+    revealed that when ham_bg is 1, the contamination fraction ("cfrac")
+    goes negative for orders bluer than order 121. This leads to inferred
+    backgrounds higher than the trough levels. This is inconsistent,
+    however, with the motivation for the contamination correction,
+    which envisions troughs that are spuriously enhanced above true
+    background levels by light from the adjacent orders. Contamination
+    corrections should only correct the background level downwards.
+  Solution: No change was made to the contamination correction applied
+    redward of order 122. Blueward of this limit the contamination
+    correction ("cfrac") is set to zero, which is equivalent to applying
+    no correction.
+
+29-Apr-94 CMJ modified GETORC to test for an overall shift in the order 
+locations. For some reason the narrow flat does not always end up where the
+stars do, sometimes by 3 pixels. Test for order locations is done in the 
+center of the frame. No rotation is tested for. A new TRACE comment occurs.
+
+20-Apr-94 CMJ, JAV  colfit.pro
+  Analysis: colfit.pro crashes with a segmentation fault during a
+    call_external to r4spline.so.  We believe this is a result of the
+    upgrade to Solaris.
+  Solution: Replace call_externals with calls to fspline.pro which calls
+    spline.so.
+
+29-Jan-94 JAV	locate.pro
+  Analysis: Automatic order base determination has not been implemented
+    yet for dewar 13. Current scheme of including in the routine a large
+    vector of canonical spacings for each dewar is cumbersome.
+  Solution: Automatic order base determination has been implemented for
+    dewar 13. Polynomial fit coefficients are included in the program,
+    rather than vector lists of canonical spacings.
+
+28-Jan-94 JAV   fords.pro
+  Analysis: Reduced big chip spectra show large scale ripples in their
+    continua. The ripples have six nodes, one near the left edge, one
+    near the right edge, and 4 equally spaced across the middle. The
+    position of these nodes is identical for all orders. The amplitude
+    of the ripples can be as large as 15% of the continuum (especially
+    in the blue), varies from order to order, and varies from one
+    observation to the next. The variations in amplitude seems random.
+    These continuum ripples are actually depressions in the continuum
+    caused by errors in the polynomial fits to the order locations,
+    which oscillate about the true locations of the order peaks. The
+    amplitude of these oscillations can be as large as 0.15 pixel. As
+    the fit location wanders off a true peak, the continuum is
+    depressed.  The errors in the order location fits are due to
+    numerical precision limitations in poly_fit. This problem will
+    probably also affect small chip reductions, as these too use a
+    sixth order polynomial.
+  Solution: The mean row number is subtracted from the peak locations
+    for each order, prior to the polynomial fit. The mean is then added
+    back in to the constant term in the deduced coefficients. The
+    resulting order coefficients can be interpreted as before.
+
+17-Jul-93 JAV  wdisp.pro
+  Analysis: Writing a spectrum with bscale=0 (which occurs when all pixels
+    in an order have exactly the same value), leads to a divide by zero
+    error.
+  Solution: Logic in wdisp now handles constant orders as a special case.
+    Rdisp works in all cases without modification.
+
+6-Jul-93 GB  maskim.pro
+  Analysis: The chip in dewar 13.3 was destroyed in May of 1993. Hamilton
+    data obtained after this date require a new mask.
+  Solution: Maskim now has a rough mask for the new chip, which will be
+    known as dewar 13.4.
+
+13-May-93 JAV	addcard.pro
+  Analysis: When attempting to write a 2048x2048 summed Hamilton image to
+    disk, an "ADDCARD: Putative FITS header does not have an END card"
+    error occurs. Addcard expects the "END" in the END card to be followed
+    by spaces. The Lick headers (from 1991 at least) have a comment
+    beginning at character 32 in the END card.
+  Solution: Addcard now examines only the first 30 characters of each
+    header card searching for the END card.
+
+30-Mar-93 JAV	wtfits.pro, rdfits.pro, coadd.pro, cosmic.pro
+  Analysis: Rdfits is returning garbage, when trying to read Lick images
+    that were archived by the mountain crew, restored to disk at Lick,
+    and then written to tape again. At some point in this process, BSCALE
+    was changed from the usual value of 1. The scaling transformation
+    {Image = ScaledImage/BSCALE + BZERO} used in the FITS handling
+    routines is nonstandard (and hence wrong).
+  Solution: The FITS handling routines now use the standard FITS scaling
+    transformation {Image = ScaledImage*BSCALE + BZERO}. Logic was added
+    in the reading routines to detect nonstandard scaling tranformations
+    used by older versions of wtfits. Rdfits will correctly read the old
+    files, while cosmic and coadd abort with a descriptive error. Comment
+    cards written to the header by wtfits have been modified. They now
+    include a description of the transformation used. Wtfits now calls
+    addcard to add new comment cards to the FITS header. Coadd has been
+    renamed sumfits to avoid confusion with IDL's internal coadd()
+    function.
+
+10-Mar-93 JAV	exafc.pro
+  Analysis: Exafc is failing with "Attempt to subscript JXO ... is out of
+    range" error for binned big chip solar flare spectra. Extrapolated arc
+    fit coefficients for the bottom of the image are not being inserted
+    properly into xafc. The insertion point is miscalculated. The offset
+    depends on the number of orders extrapolated off the top of the chip.
+    This is *assumed* to be equal to the number of orders extrapolated
+    off the bottom of the chip. This was true until 25-Nov-92, but is no
+    longer true.
+  Solution: The number of orders extrapolated off the top of the chip is
+    now retained in naddtop and is used in determining the insertion point
+    into exafc.
+
+23-Feb-93 JAV	cosmic.pro
+  Analysis: Cosmic is failing with a "divide by zero" or "floating illegal
+    operand" error, followed by a cascade of additional errors. The median
+    is determined for each stack of pixels. The square root of this median
+    appears in the denominator of two expressions. With the corrected FITS
+    scaling logic of 5-Sep-92, this median is now occasionally negative,
+    leading to the observed failure mode.
+  Solution: Instead of dividing by the square root of median pixel value,
+    we now divide by the square root of _the absolute value of_ the median
+    pixel value.
+
+26-Feb-93 JAV	fitshd.pro
+  Analysis: Apparently, the KAST spectrograph FITS headers have 110 cards.
+    Fitshd expects the header to be no longer than two 2880-byte FITS
+    records or 2*36 (=72) 80-byte FITS headers cards.
+  Solution: The maximum header size has been doubled to four 2880-byte
+    FITS records or 4*36 (=144) 80-byte header cards.
+
+21-Jan-93 JAV	fords.pro
+  Analysis: The behavior of fords has changed for "Big Trim" spectra binned
+    2x2. The reddest order found is now 59, rather than 58. The change of
+    12-Dec-92 is causing order 58 to be discarded, even though it is just
+    barely fully contained on the chip. There is really no reason the edge
+    troughs shouldn't be allowed to extend all the way to the edges of the
+    chip, especially since extraction rarely extends all the way to the
+    trough.
+  Solution: The first and last orders are now retained if their bounding
+    troughs lie on the chip. The bounding troughs no longer need to be
+    at least "poff" pixels from the edge.
+
+12-Dec-92 JAV	fords.pro
+  Analysis: I've forgotten the symptoms which led to the following analysis.
+    The reddest order returned by fords was too close to the top edge of the
+    chip. Although the peak of the reddest order never got within "poff" of
+    the top edge, the extraction width extended beyond the edge. Poff was
+    being used for two different purposes. Poff is 4/ham_bin, meaning that
+    4/ham_bin pixels above and below each order peak are used to determine
+    the exact location of the peak. Poff was also being used as the closest
+    an order peak could come to the edge of the chip. There is no value of
+    poff that makes sense for both applications.
+  Solution: The location of the trough above the reddest order is estimated
+    by linearly extrapolating (by half the order spacing) the peak locations
+    of the first two orders  If this trough is less than "poff" pixels from
+    the edge of the chip, then the order is discarded. A similar test is
+    applied to the bluest order.
+
+29-Nov-92 JAV	getorc.pro
+  Analysis: Getxwd.pro failed on a binned, dewar 13.3 narrow flat. Subscript
+    was out of range for variable "swa". Bad subscript due to bad order
+    location coefficients (orc). In the top corners of the chip, the orders
+    are closely spaced and are curving rapidly across rows. Because of this
+    curvature, fords.pro lost track of one order and eventually locked on to
+    the adjacent order.
+  Solution: Reduce the width of the vertical swaths (swid), so as to better
+    track the curvature of the orders. Since the problem occured with binned
+    spectra, divide by the binning factor (ham_bin). This doesn't affect
+    unbinned spectra (ham_bin=1), but doubles the number of vertical swaths
+    in binned spectra (ham_bin=2). So for binned spectra, fords will take
+    twice as long, will have half the faint-spectrum sensitivity, but it
+    will work.
+
+----- Summaries of older changes. Detailed descriptions not available. -----
+
+25-Nov-92 JAV	exafc.pro
+  Reinitialize zadd when extrapolating off top edge of chip.
+
+29-Sep-92 JAV	fords.pro
+  Inserted logic to set poff to 2 pixels for binned images.
+
+28-Sep-92 JAV,CMJ  fndpks.pro
+  Fixed bug in initial pk location - derivatives at wrong pts.
+
+28-Sep-92 JAV	fords.pro
+  Try median of past three peaks (mdpk) when new peak is not in
+  poff window in case most recent peak was only marginally good.
+
+19-Sep-92 JAV	hamspec.pro
+  Obase read from .fmt file mandatory. Write obase to .isp file.
+
+19-Sep-92 JAV	rdisp.pro
+  Changed to support version 2 headers with obase. Added /relative
+  keyword. Changed default onum interpretation to absolute order.
+
+19-Sep-92 JAV	wdisp.pro
+  Upgrade to version 2, new header format with obase.
+
+18-Sep-92 JAV	maskim.pro
+  Fixed bug that caused masks to be improperly positioned for
+  binned images with nonzero offsets.
+
+12-Sep-92 JAV	fords.pro
+  Added test for parabolic order peak off image.
+
+05-Sep-92 JAV	coadd.pro cosmic.pro rdfits.pro
+  Fixed sign error in application of BZero.
+
+05-Sep-92 JAV	fords.pro
+  Added minreq logic.
+
+05-Sep-92 JAV	getorc.pro
+  Added minreq keyword in call to fords.
+
+05-Sep-92 JAV	wtfits.pro
+  Changed transformation from ScIm = Bscale * (Im + Bzero) to
+  ScIm = Bscale * (Im - Bzero) to match changes in rdfits.pro.
+
+18-Aug-92 JAV	exafc.pro
+  Added ncol argument. Extrapolate counts in end arcs and then
+  fit to extrapolated arcs, rather than just extrapolating
+  coefficients of end arcs.
+
+18-Aug-92 JAV	hamdord.pro
+  Reversed order in which hotpix and maskim are done.
+
+18-Aug-92 JAV	hotpix.pro
+  Stripped out bad pixel list logic. Sorry.
+
+18-Aug-92 JAV	maskim.pro
+  Added dewar 13.3 mask boxes.
+
+17-Aug-92 JAV	colfit.pro
+  Inserted /100.0 in final loop to match new definition of afc
+  in fitarcs (fit is now vs. col/100.0, instead of just col).
+
+17-Aug-92 JAV	exorc.pro
+  New logic: fit to extrapolated order locations, rather than
+  extrapolating fits to order locations. Works much better.
+
+17-Aug-92 JAV	fitarcs.pro
+  Set arcdeg=6 for ncol>1200 afc from fit of arc-mean(arc) vs.
+  col/100 for greater accuracy.
+
+14-Aug-92 JAV	hamset.pro
+  Add "coff" and "roff" globals.
+
+14-Aug-92 ECW	hotpix.pro
+  Tuned thresh=15, mwid=3, reject 1% before stdev. Fixed
+  bug in reported number of pixels fixed. Added bad pixel list.
+
+25-Jun-92 Fen	coadd.pro
+  Space padding logic for file name fixed.
+
+11-Jun-92 JAV,GM  backgd.pro
+  Fixed minor bug in upper bin edge logic.
+
+11-May-92 JAV	backgd.pro
+  Put in various trough correction schemes.
+
+07-May-92 JAV	hamdord.pro
+  Changed ".xwd" to ".fmt" includes blaze center, base order.
+
+06-May-92 JAV	hamset.pro
+  Add "obase" global.
+
+30-Apr-92 JAV	fords.pro
+  Added resampling logic.
+
+30-Apr-92 JAV	maskbox.pro
+  Cleaned up code. Fixed bug in computation of avg.
+
+29-Apr-92 JAV	colfit.pro
+  Boosted speed by calling real*4 spline external directly and
+
+29-Apr-92 JAV	fitarcs.pro
+  Tightened up loop through arcs.
+
+29-Apr-92 JAV	flatim.pro
+  Moved normalized flat bad pixel logic from here to hamflat.pro.
+  Tightened up normalization loop.
+
+29-Apr-92 JAV	hamdord.pro
+  Now clip baseline column of FITS images.
+
+29-Apr-92 JAV	hamflat.pro
+  Now clip baseline column of FITS images. Moved normalized flat
+  bad pixel logic from flatim.pro to here.
+
+29-Apr-92 JAV	hamspec.pro
+  Now clip baseline column of FITS images.
+
+29-Apr-92 JAV	rdfits.pro
+  Added ClipBase capability for Hamilton Reduction package.
+
+28-Apr-92 JAV	exafc.pro
+  Fixed two bad logic errors.
+
+21-Apr-92 JAV	hamset.pro
+  Add "spike" global and "silent" flag.
+
+20-Apr-92 JAV	exafc.pro
+  Reworked sieve->where logic.
+
+18-Apr-92 JAV	backgd.pro
+  Updated global variable list/interpretations.
+
+18-Apr-92 JAV	deblaze.pro falspk.pro flatim.pro fords.pro normflat.pro
+  Removed common block definition.
+
+18-Apr-92 JAV	fitarcs.pro fndpks.pro getorc.pro
+  Updated global variable list/interpretations.
+
+18-Apr-92 JAV	getspec.pro
+  Updated global variable list/interpretations. Changed xwd logic.
+
+18-Apr-92 JAV	gettrof.pro
+  Removed common block definition. Changed trace logic.
+
+18-Apr-92 JAV	hamdord.pro
+  Updated global variable list/interpretations. Replaced wdsk
+  /insert flags with /new flags. Converted file extensions to
+  Reversed order in which hotpix and maskim are done.
+
+18-Apr-92 JAV	hamflat.pro
+  logic error. Implemented trace level. Fixed default order
+  location logic. Changed file extensions to lower case.
+
+18-Apr-92 JAV	hamset.pro
+  Create.
+
+18-Apr-92 JAV	hamspec.pro
+  Updated global variable list/interpretations. Reenabled maskim
+  when thar=1.
+
+18-Apr-92 JAV	maskbox.pro
+  Removed common block definition and ham_trace reference.
+
+18-Apr-92 JAV	maskim.pro
+
+3-Mar-92 JAV	rdisp.pro
+  Adapted from wdisp.pro.
+
+2-Mar-92 JAV	wdisp.pro
+  Adapt from wdhsp.ana.

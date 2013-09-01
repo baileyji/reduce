@@ -1,0 +1,52 @@
+uves
+   uves_blue
+   uves_middle
+   uves_red
+ces
+   ces
+mcd2d
+   mcd2d_cs21
+   mcd2d_cs23
+#kpfeed6
+#   kpfeed6
+nes
+   nes
+saao_giraffe
+   saao_giraffe_top
+   saao_giraffe_bottom
+elodie
+   elodie
+sarg
+   sarg_red1
+   sarg_red2
+boes
+   boes
+feros
+   feros
+subaru_hds
+   subaru_hds_blue_left
+   subaru_hds_blue_right
+   subaru_hds_red_left
+   subaru_hds_red_right
+flames_giraffe
+   flames_giraffe
+het_hrs
+   het_hrs_blue
+   het_hrs_red
+bhros
+   bhros
+keck_hires
+   keck_hires_blue
+   keck_hires_green
+   keck_hires_red
+harps
+   harps_red
+   harps_blue
+not_fies
+   not_fies
+hamilton
+   hamilton
+ctio_chiron
+   ctio_chiron2
+xshooter
+   xshooter_nir

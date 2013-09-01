@@ -1,0 +1,399 @@
+		IDL HAMILTON REDUCTION PACKAGE: USER'S GUIDE.
+			      Jeff A. Valenti
+				 28-Apr-92
+
+ACKNOWLEDGEMENTS:
+
+     This package has come into being with the help of Gibor Basri, Geoff
+Marcy, Jeff Valenti, Annette Lee, Chris Johns, and Mike Brown.
+
+INTRODUCTION:
+
+     This document is actually more than just a guide on how to use the
+IDL Hamilton reduction software. It also includes recommendations on
+observing procedures and a basic tutorial on various aspects of CCDs and
+echelle spectrographs. Those of you who already feel comfortable with
+these other issues may wish to skip directly to the sections on "Preparing
+Images for Reduction" and "Using the Package." Those of you who want more
+background information should read the excellent Hamilton User's Guide by
+Tony Misch.
+
+HISTORY:
+
+     This reduction package began as a group of routines written by Gibor
+Basri in the ANA programming language in a VMS environment. These routines
+were completely redesigned and rewritten by Jeff Valenti in late 1989. In
+early 1992, the routines were ported to IDL in Unix environment by Annette
+Lee and then slightly modified by Jeff Valenti. The format of the reduced
+spectrum is different for each of the reduction packages. The following
+table gives the file extensions associated with reduced spectra from each
+of the packages and the name of the IDL routine to be used to read the
+spectrum into IDL. (Version 1 and 2 spectra must be FTPed in binary mode
+to a Unix machine before they can be read into IDL.)
+
+     Package:		Original	Last VMS	First IDL
+     Version:		 1		 2		 3
+     Extension:		.ham		.hsp		.isp
+     IDL Routine:	restana		rdhsp		rdisp
+
+In versions 1 and 2, wavelength scales were determined with the program
+ewave.exe, which was stripped from an old version of Vista. The resulting
+wavelength scale was specified by six coefficients of a two-dimensional
+fit. The coefficients were stored in ASCII format in a file with a ".ply"
+extension. Mike Brown has demonstrated that the wavelength solutions are
+systematically in error for calibration spectra that include the very
+bright Argon lines longwards of about 7000 Angstroms. Wavelength scales
+can be constructed in IDL from ".ply" files with the routine wavarr. In
+version 3 the wavelength stored and reconstructed in a completely different,
+but as yet unimplemented manner.
+
+OBSERVATIONS:
+
+     Certain calibration spectra need to be obtained while observing in
+order to successfully use this reduction package. The most crucial element
+is a so called "wide flat" spectrum. The reduction package uses the wide
+flat to remove pixel-to-pixel response variations and interference fringes
+beyond about 6000 Angstroms. A wide flat is obtained by opening the decker
+up to a width of 5 arcseconds and taking an exposure of the polar quartz
+lamp. If necessary, a diffuser may be placed between the lamp and the slit
+to avoid saturating the CCD pixel wells. Filters should be used to ensure
+relatively uniform illumination at all wavelengths. Often two exposures
+each with a different filter are required to achieve uniform illumination.
+The same effect can be achieved by pausing a single exposure in the middle
+and switching the filter. For high S/N applications, it may be necessary
+to obtain many wide flats, which should be combined with the IDL routines
+coadd or cosmic and saved with wtfits, prior to use in the reduction
+package.
+
+     The reduction package begins processing a particular observing run
+and setting by determining default order locations. A well exposed spectrum
+is required for this purpose. Any bright spectrum, including one of a
+target, will suffice. Alternatively, a so called "narrow flat" may be
+used for this purpose. The procedure for obtaining a narrow flat is similar
+to the procedure described above for the wide flat, except that the decker
+remains at the normal observing width and only moderate S/N is required.
+
+     Wavelength scales are determined from a spectrum of a Thorium-Argon
+lamp. The lamp should be allowed to warm up for a minute or so before
+beginning the exposure, as some lines are weak when the lamp is first
+illuminated. The quality of the final wavelength scale depends on the
+number of weak lines that can be measured. Unfortunately, increasing the
+exposure time beyond about 4 seconds severely saturates the cores of
+strong lines and leads to very troublesome "bleed columns" beneath the
+Argon lines redwards of 7000 Angstroms. To avoid these problems, a short
+pass filter should be used to cut out much of the light longwards of
+7000 Angstroms, and a few short exposures should be taken and summed
+with the IDL routine coadd and then saved with wtfits.
+
+     Although the reduction package has no provisons for removing
+underlying dark current, it is probably a good idea to do this for low
+S/N spectra. A so called "dark" frame should be obtained by taking an
+exposure of the same length as an actual target exposure, but with the
+shutter closed the entire time. This image can then be subtracted
+from the target image prior to the general reduction procedure.
+
+     One final calibration spectrum that may be useful is a so called
+"day sky" spectrum. Very high S/N day sky spectra can be used to determine
+the Hamilton instrumental profile essentially by denvolution with the NSO
+Solar Atlas (Kurucz et al., 198?; see Jeff Valenti or Geoff Marcy for
+details). Day sky spectra are obtained by using the Coude Auxiliary
+Telescope (CAT) to feed sunlight to the Hamilton. The CAT optical path
+is opened between the slit and the upper shutter, but the shed and mirror
+cover on the sidereostat are left *CLOSED* to avoid heating the optics
+excessively. At least a half dozen well exposed spectra should be
+obtained and summed with the IDL routines coadd or cosmic and then
+saved with wtfits. Additional spectra will improve the quality of the
+resultant instrumental profile.
+
+PREPARING IMAGES FOR REDUCTION:
+
+     The images you want to reduce must first be loaded onto a disk mounted
+by the IDL host machine. (The "host machine" is a machine licensed to run
+IDL on which you intend to run the reduction package.) If your images are
+on some other disk (e.g. one at the observatory), you can transfer them in
+binary mode with the Unix utility ftp. If your images are stored in FITS
+format on tape, you can read them onto disk with the convenient c-shell
+script rdtape. To use this script, do the following:
+
+  1) Write protect your data tape, i.e. remove the plastic "write
+      ring" from the shallow channel near the hub on the back of a
+      9-track reel or slide the red shield over the notch on the
+      fixed, long edge of an exabyte cassette.
+
+  2) Insert tape into tape drive and wait for it to load. Most tape
+      drives automatically go "online" after loading, but for older
+      ones, you may have to put it online yourself.
+
+  3) Log onto the machine to which the tape drive is connected. At
+      Berkeley the tape drives are connected to node ucbast.
+
+  4) Make a directory in which you will do the reduction.
+      (e.g. "mkdir ~/reduce")
+
+  5) Change into the directory in which you will do the reduction.
+      (e.g. "cd ~/reduce")
+
+  6) Read your images from tape by invoking the C-shell script "rdtape".
+      Depending on your PATH environment variable, you may have to
+      prepend the name of the directory containing the script file.
+      (e.g. "/luna/idl/ham/rdtape")
+
+  Steps 6 through 10 cover questions asked within the rdtape script.
+
+  7) Specify the tape drive you are using. You will be given a list
+      of names from which to choose. The script works equally well
+      with exabyte cassettes and 9-track reels.
+      (e.g. "ex" specifies the exabyte drive on top of ucbast)
+
+  8) Specify the first and last image numbers to read from tape. The
+      first image on tape is numbered 0, not 1. On tapes made at Lick,
+      image 0 does *not* contain the first recorded image. For Lick
+      9-track tapes, it contains a blank FITS header, while for Lick
+      exabyte tapes it should contain all the FITS headers of all
+      images stored on the tape. For Lick tapes, image 1 contains
+      the first data image.
+      (e.g. "3" <return> "6")
+
+  9) Specify the tape label. This will be used to construct filenames
+      of the form "label" + "image number" + ".fits"
+      (e.g. "xf", which will create files named xf3.fits, xf4.fits,
+      xf5.fits, and xf6.fits, for the image numbers selected above.)
+
+ 10) Once the images you have requested are all read from tape, you
+      will be asked whether you want the tape dismounted. If you are
+      done reading images, type "y". If you want to read another block
+      of images elsewhere on the tape, type "n" and then invoke rdtape
+      again. Don't bother repositioning the tape, as the tape drive
+      controller automatically handles this as efficiently as possible.
+      (e.g. "y")
+
+ 11) Remove your tape from the drive, once it finishes unloading.
+
+     Often you will have multiple exposures of a particular source, rather
+than a single longer exposure. One reason to do this is to achieve high
+signal-to-noise (S/N). As discussed in the "Miscellaneous" section below,
+Lick CCDs saturate at about 16,000 DN, which corresponds to about 40,000
+photons. Poisson noise dominates at these high count levels, so the S/N
+is just the square root of the number of photons or about 200 in this
+limit. Multiple exposures must be added to achieve S/N higher than this.
+Another reason to break up a long exposure is to facilitate finding and
+removing cosmic rays "hits", which show up as spikes visible in only one
+of the images. (While normal light must pass through the telescope and
+spectrograph optics to reach the CCD, cosmic rays penetrate directly 
+through the atmosphere and observatory building, ocassionally generating
+high concentrations of unwanted electrons at random places in the CCD.)
+Finally, it is best to break up a long exposure just in case something
+unexpectedly ruins one of your exposures. This sort of mishap happens all
+too often, so it's wise to take precautions.
+
+     We have two IDL routines to combine multiple images. The first is
+coadd.pro, which adds a list of images together pixel by pixel, returning
+the resultant coadded image in an array variable. This utility only works
+with images stored in a disk FITS format. The list of filenames is
+specified by a template and a numeric substitution list. The template is
+a string that contains the text common to all filenames and a pounds sign
+("#") where numbers from the substitution list belong. For example,
+"coadd,'xf#.fits',[3,4,5,6],im,head" would return in the variable "im" the
+sum of the images stored in the files xf3.fits, xf4.fits, and xf5.fits,
+and xf6.fits. "coadd,'a06.#',im,[14,15,16],im,head" coadds a06.14, a06.15,
+and a06.16. Most, but not all, filename formats can be handled by this
+formalism. The maximum number of files that can be accessed is limited by
+the number of avaible logical units between 100 and 128, and so cannot
+exceed 29, but may in fact be less. If you need to exceed this limit,
+divide your images into groups of a managable size and run coadd on each
+of these groups, saving the results in FITS files (see below). Then run
+coadd again to combine the coadded groups into a final coadded image. The
+variable "head" returned by coadd is a slightly modified copy of the
+FITS header of the first file in your list. The differences are:
+
+  1) The EXPOSURE card now contains the sum of all the exposure
+       times (from EXPOSURE cards) of the coadded images.
+
+  2) An OBSLIST card has been added that contains a comma separated
+       list of the observation numbers (from OBSNUM cards) of the
+       coadded images.
+
+  3) A TAPELIST card has been added that contains a comma separated
+       list of the tape numbers (from TAPENUM cards) of the coadded
+       images.
+
+  4) A new COMMENT card reports the date and time when the images
+       were coadded.
+
+     To write the coadded image ("im") to a disk file ("newfile.fits") in
+FITS format (with the FITS header contained in "head"), use the IDL routine
+wtfits.pro (e.g. "wtfits,im,'newfile.fits',head,'Extra comment'"). The
+optional fourth argument is the text of an extra comment to be inserted
+into a COMMENT card in the FITS header. Wtfits adds a COMMENT card giving
+the date and time when the image was written. Alternatively, the image
+may be written to disk in the "dsk" format using rdsk.pro. The syntax
+for this routine is "rdsk,im,'newfile.dsk',comment='Extra comment'" and
+again the extra comment specification is optional. These two image formats
+are currently the only formats supported by the Hamilton reduction package.
+Moreover, the package assumes these files will have ".fits" or ".dsk" file
+extensions. Images saved in FITS format are saved as scaled 2 byte
+integers; whereas, images saved in "dsk" format are saved as 4 byte
+floating point numbers. The FITS format is preferred because it takes
+about half as much disk space, the header contains far more information,
+and it is more or less standardized, so that the images can probably be
+read into other packages.
+
+     The second IDL routine for combining multiple images is cosmic.pro.
+Rather than simply adding images together, this routine compares all of the
+images pixel by pixel, searching for highly discrepent pixels that might
+be due to cosmic rays. These discrepent pixels are excluded from the final
+sum, while the weight of the remaining pixels is increased accordingly.
+Each image is normailized before comparison, so that different exposure
+levels are not a problem; however, intrinsic source variations, filter
+changes, etc. will confuse the algorithm. The syntax for this routine is
+identical to the syntax for coadd.pro and the same limitation on maximum
+number of input files applies. Unlike coadd, this routine will not work
+with only two images. The resultant image can be stored with wtfits or
+wdsk, as discussed above. Cosmic is *much* slower than simply coadding the
+images and it has not received extensive testing yet, but it is a good
+idea in principle.
+
+USING THE PACKAGE:
+
+     The Hamilton reduction package is designed to be easy to use in
+ordinary situations, while providing the tools needed to handle more
+complicated situations. The package is a hierarchy of nested routines
+of increasing complexity, such that the outermost level is the easiest
+to use, but offers the least flexibility. Interfacing at deeper levels
+allows more flexibility, but requires successively greater knowledge.
+(As a metaphor, consider a large "black box" which represents the package
+at its outermost level. The inputs and outputs are fairly simple and no
+knowledge of the internal mechanisms are required to use it. Opening the
+large box reveals a few medium-sized boxes connected by wires. Once you
+understand the input, output, and connectivity of the medium-sized boxes,
+you can rewire them into a different large box, or simply interface with 
+them at this lower level. More boxes exist at smaller scales, connected
+by successively more intricate wiring. Each descent into a smaller box
+gives greater flexibility at the cost of greater complexity.) In practical
+terms, "complexity" means "time spent learning details", and should be
+minimized whenever possible. So, start with the simplest interface to
+the reduction package, read the diagnostic messages carefully, and only
+delve into the internals if you suspect something is wrong.
+
+     So here then is the simplest sequence for invoking the Hamilton
+reduction package: 
+
+  1) Change to the directory containing your images to be reduced.
+      (e.g. "cd ~/reduce")
+
+  2) Copy the reduction template file, "Example" into your reduction
+      directory, renaming it in the process. Unix filenames are case-
+      sensitive, so do not corrupt the capitalization of filenames.
+      You will also probably have to prepend "Example" with the name
+      of the directory in which it is located.
+     The new name for the copy of "Example" is specified by the second
+      argument of the Unix "cp" command. Choose this name well! It
+      should uniquely designate a set of images that are to be reduced
+      together. (Images taken on a particular night with a particular
+      spectrograph setting are usually reduced together as a unit,
+      but independently of all other images.) This set of images will
+      be identified by a unique "setting name", which you should use
+      as the name of your new copy of the "Example" reduction template.
+      This setting name is also used later to construct other files
+      with various extensions, so try to keep the name short and
+      extensible. One possible naming scheme uses the tape label and
+      perhaps an index, if there is more than one setting per tape.
+      (e.g. "cp /luna/idl/ham/Example xf-1")
+
+  3) Edit this new "reduction file", making changes between the two
+      horizontal lines to meet your specific reduction needs (see below).
+      (e.g. "vi xf-1")
+
+  Steps 4 through 12 refer to changes that need to be made to your
+   new reduction file. Many of the changes involve specifying new
+   values for the right hand side (RHS) of IDL assignment statements.
+   The examples below show what the relevant segment of the file might
+   look like, but not the editor commands required to make it so.
+
+  4) Change the RHS of the "set" assignment statement to the "setting
+      name" you have selected, which should also be the name of the
+      file you are currently editing.
+      (e.g. "set = 'xf-1'")
+
+  5) Change the RHS of the "prefix" assignment statement to any
+      prefix common to *all* your image filenames. If your filenames
+      have no common prefix, change the RHS to the null string ('').
+      (e.g. "prefix = 'xf'")
+
+  6) Change the RHS of the "suffix" assignment statement to any
+      suffix common to *all* your image filenames. If your filenames
+      have no common suffix, change the RHS to the null string ('').
+      (e.g. "suffix = ''")
+
+  7) Change the RHS of the "narr" assignment statement to the "root"
+      portion of the filename containing the image to use in mapping
+      default order locations. The root portion of a filename does
+      not include either the prefix or the suffix (see steps 5 and 6
+      immediately above). Typically, "narrow flats" (see the section
+      on "Observations" above) are used to map the default order
+      locations, although any spectrum with a well exposed continuum
+      will suffice. Occasionally an order near the edge of the chip
+      is mapped in some images, but not in others. Whenever there is
+      a discrepency in the number of orders to extract, the default
+      order locations are always used. In such situations, it is
+      probably best to split the images into two groups, depending
+      on how many orders they contain, and then reduce the two
+      groups separately.
+
+  8) Change the RHS of the "wide" assignment statement to the root
+      portion of the filename containing the image to be used in
+      constructing a normalized flat fielding image.
+
+(Move this to the description of hamdord:)
+      Order locations are specified by
+      one polynomial per order, each of which gives row number as
+      a function of column number. The coefficients are stored in
+      a "dsk" format file whose name is constructed from the setting
+      name with a ".ord" extension appended (e.g. xf-1.ord). The
+      image specified here will also be used to determine the default
+      "extraction width", which will be stored in a "dsk" format file
+      whose name is constructed from the setting name with a ".xwd"
+      extension appended (e.g. xf-1.xwd). If the extraction width
+      is less than or equal to one, then it represent the fraction
+      of each order's full width (as determined by the spacing
+      between orders) which will be used in extracting spectra. If
+      the extraction width exceeds one, then it specifies the number
+      of pixels on each side of the order peak which will be used
+      in extracting spectra.
+
+
+
+
+
+
+
+
+
+
+
+
+
+MISCELLANEOUS:
+
+     A raw image consists of an array of numbers measured in "counts",
+"digital numbers", or simply "DN." Each entry in the array corresponds
+to a pixel on the CCD. CCD's work by generating electrons in response
+to incident photons. The fraction of incident photons that actually
+generate electrons (i.e. the CCD's "quantum efficiency" or "QE") varies
+with the wavelength of incident light, usually peaking above 50 percent.
+When a large number of electrons accumulate in a pixel, the QE in that
+pixel begins dropping (the chip "goes nonlinear") and eventually goes
+to zero (the chip "saturates"). CCD's are typically more sensitive in
+the red up to some cutoff, but they can be physically "thinned" to
+improve blue sensitivity. Photon generated electrons accumulate in the
+pixels over the course of an exposure. In addition a small number of
+thermally created electrons ("dark counts") are generated within the
+CCD itself. When the exposure is completed, the electrons in each pixel
+are marched across the chip towards one of the corners, amplified, and
+counted by an analog to digital ("A to D") converter. The digital number
+that results is the number of electrons that accumulated in the
+corresponding pixel times some scale factor that depends on the amplifier
+characteristics. For most Lick CCDs, 1 DN corresponds to about 2.5
+electrons and pixels saturate somewhere between 15,000 and 20,000 DN,
+depending on the exact chip.
+
