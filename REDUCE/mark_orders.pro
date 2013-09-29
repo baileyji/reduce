@@ -76,7 +76,7 @@ Pro mark_orders, im,orders, POWER=power, FILTER=filter $
     if(keyword_set(color)) then colors else loadct,0,/SILENT
   endif
   if(not keyword_set(thres)) then thres=400
-  index=cluster(x,y,nx,ny,nregions=nregions,thres=thres,PLOT=iplot)
+  index=reduce_cluster(x,y,nx,ny,nregions=nregions,thres=thres,PLOT=iplot)
   ind=where(index gt 0, n)
   if(n gt 0) then begin
     x=x(ind)

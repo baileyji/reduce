@@ -1,4 +1,4 @@
-Function Cluster,x,y,nx,ny,NREGIONS=nregions,THRES=threshold,PLOT=iplot
+Function reduce_cluster,x,y,nx,ny,NREGIONS=nregions,THRES=threshold,PLOT=iplot
 ;
 ; Cluster takes two 1D integer arrays with X and Y coodinates of
 ; pixels somehow selected in a 2D (Nx,Ny) array and identifies
